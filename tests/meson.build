@@ -60,6 +60,7 @@ test_progs = [
 	'kms_vblank',
 	'kms_vrr',
 	'kms_writeback',
+	'kms_dpst',
 	'meta_test',
 	'msm_mapping',
 	'msm_recovery',
