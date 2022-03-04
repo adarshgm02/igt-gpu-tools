@@ -125,20 +125,20 @@ static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
                 ret = drmModeAtomicCommit(fd, req, DRM_MODE_ATOMIC_TEST_ONLY, NULL);
                 igt_assert_eq(ret, 0);
                 }
-                drmModeFreeProperty(prop);
+//                drmModeFreeProperty(prop);
         }
 
 	drmModeObjectPropertiesPtr  props1 = drmModeObjectGetProperties(fd, id, type);
-	for (i = 0; i < props->count_props; i++) {
-                uint32_t prop_id = props->props[i];
-                uint64_t prop_value = props->prop_values[i];
-                drmModePropertyPtr prop = drmModeGetProperty(fd, prop_id);
+	for (i = 0; i < props1->count_props; i++) {
+                uint32_t prop_id1 = props1->props[i];
+                uint64_t prop_value1 = props1->prop_values[i];
+                drmModePropertyPtr prop1 = drmModeGetProperty(fd, prop_id1);
 
 
-                igt_assert(prop);
-                if(strcmp(prop->name,"DPST"))
+                igt_assert(prop1);
+                if(strcmp(prop1->name,"DPST"))
                         continue;
-                printf(" After: prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
+                printf(" After: prop_id=%d ,property value=%ld,name =%s\n",prop_id1 ,prop_value1,prop1->name);
 }
 
 //       drmModePropertyPtr prop1 = drmModLeGetProperty(fd, dpst_id);
