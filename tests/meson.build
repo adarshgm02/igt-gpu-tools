@@ -60,7 +60,8 @@ test_progs = [
 	'kms_vblank',
 	'kms_vrr',
 	'kms_writeback',
-	'kms_dpst',
+#	'kms_dpst',
+#	'kms_testing_dummy_dpst',
 	'meta_test',
 	'msm_mapping',
 	'msm_recovery',
@@ -251,6 +252,13 @@ i915_progs = [
 ]
 
 test_deps = [ igt_deps ]
+if libdpst.found()
+        test_progs += [
+                'kms_dpst',
+                'kms_testing_dummy_dpst',
+        ]
+        test_deps += libdpst
+endif
 
 if libdrm_nouveau.found()
 	test_progs += [

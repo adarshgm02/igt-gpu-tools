@@ -128,6 +128,7 @@ build_info += 'With libunwind: @0@'.format(libunwind.found())
 
 libdw = dependency('libdw', required : true)
 pixman = dependency('pixman-1', required : true)
+libdpst = dependency('libdpst', required : true)
 
 valgrind = dependency('valgrind', required : get_option('valgrind'))
 if valgrind.found()

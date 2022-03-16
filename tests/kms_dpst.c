@@ -1,5 +1,7 @@
 #include "igt.h"
 #include "igt_vec.h"
+//#include "DisplayPcDpst.h"
+
 #include <fcntl.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -107,9 +109,10 @@ static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
                 uint64_t prop_value = props->prop_values[i];
                 drmModePropertyPtr prop = drmModeGetProperty(fd, prop_id);		
                 igt_assert(prop);
+		printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);	
 		if(strcmp(prop->name,"DPST"))
 			continue;
-		printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
+	//	printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
 		dpst_id = prop_id;
 		dpst_value =1 ;
 

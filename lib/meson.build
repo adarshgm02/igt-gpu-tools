@@ -101,7 +101,8 @@ lib_deps = [
 	pixman,
 	pthreads,
 	realtime,
-	zlib
+	zlib,
+	libdpst
 ]
 
 if libdrm_intel.found()
