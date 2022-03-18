@@ -125,6 +125,9 @@ enum igt_atomic_crtc_properties {
        IGT_CRTC_ACTIVE,
        IGT_CRTC_OUT_FENCE_PTR,
        IGT_CRTC_VRR_ENABLED,
+       IGT_CRTC_DPST_HISTOGRAM,
+       IGT_CRTC_DPST_PIXEL_FACTOR,
+       IGT_CRTC_DPST,
        IGT_NUM_CRTC_PROPS
 };
 
