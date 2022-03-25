@@ -74,12 +74,6 @@ static void cleanup_pipe(igt_display_t *display, enum pipe pipe, igt_output_t *o
         igt_remove_fb(display->drm_fd, fb);
 }
 
-static void display_init(data_t *data)
-{
-	igt_display_require(&data->display, data->drm_fd);
-	setup_output(data);
-}
-
 /*void set_pixel_factor(data_t *data,
                igt_pipe_t *pipe, )
 {	DD_DPST_ARGS compargs =Set_BacklightLevel_DietFactor ();
@@ -94,7 +88,7 @@ void send_data_to_DPST_algorith()
 	uint32_t Histogram[DPST_BIN_COUNT] =(uint32_t)
 	DD_DPST_ARGS args ;
 	args.Aggressiveness_Level = DPST_AGGRESSIVENESS ;
-	args.Histogram =
+	args.Histogram = Histogram;
 }
 
 
@@ -124,14 +118,6 @@ static drmModePropertyBlobRes *get_dpst_blob(int fd, uint32_t type, uint32_t id,
                                    NULL, &blob_id, NULL);
 	printf("blob_id : %ld\n",blob_id);
         if (ret)
-                blob = drmModeGetPropertyBlob(fd, blob_id);
-
-        igt_assert(blob);
-	
-	printf("Successfully read the Blob Property");
-        return blob;
-}
-
                 blob = drmModeGetPropertyBlob(fd, blob_id);
 
         igt_assert(blob);
@@ -217,6 +203,14 @@ static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
         drmModeFreeObjectProperties(props);
         drmModeObjectPropertiesPtr  props1 = drmModeObjectGetProperties(fd, id, type);
         for (i = 0; i < props1->count_props; i++) {
+                uint32_t prop_id1 = props1->props[i];
+                uint64_t prop_value1 = props1->prop_values[i];
+                drmModePropertyPtr prop1 = drmModeGetProperty(fd, prop_id1);
+
+
+                igt_assert(prop1);
+                if(strcmp(prop1->name,"DPST"))
+                        continue;
                 printf(" After: prop_id=%d ,property value=%ld,name =%s\n",prop_id1 ,prop_value1,prop1->name);
                 drmModeFreeProperty(prop1);
         }
@@ -227,7 +221,7 @@ static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
                 igt_assert_eq(ret, 0);
                 drmModeAtomicFree(req);
         }
-  	
+	
 }
 
 static void run_crtc_property_for_dpst(igt_display_t *display, enum pipe pipe, igt_output_t *output,bool atomic)
