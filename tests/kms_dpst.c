@@ -26,8 +26,6 @@ typedef struct {
         igt_output_t *output;
 } data_t;
 
-
-
 static void setup_output(data_t *data)
 {
         igt_output_t *output;
@@ -47,6 +45,7 @@ static void setup_output(data_t *data)
                 return;
         }
 }
+
 static void prepare_pipe(igt_display_t *display, enum pipe pipe, igt_output_t *output, struct igt_fb *fb)
 {
         drmModeModeInfo *mode = igt_output_get_mode(output);
@@ -75,13 +74,31 @@ static void cleanup_pipe(igt_display_t *display, enum pipe pipe, igt_output_t *o
         igt_remove_fb(display->drm_fd, fb);
 }
 
-
 static void display_init(data_t *data)
 {
-        igt_display_require(&data->display, data->drm_fd);
-        setup_output(data);
+	igt_display_require(&data->display, data->drm_fd);
+	setup_output(data);
 }
 
+/*void set_pixel_factor(data_t *data,
+               igt_pipe_t *pipe, )
+{	DD_DPST_ARGS compargs =Set_BacklightLevel_DietFactor ();
+	uint32_t DietFactor[DPST_IET_LUT_LENGTH] = compargs.DietFactor ;
+        size_t size = sizeof(DietFactor) ;
+        igt_pipe_obj_replace_prop_blob(pipe,IGT_CRTC_DPST_PIXEL_FACTOR,DietFactor, size);
+}
+void send_data_to_DPST_algorith()
+{		
+	drmModePropertyBlobRes *dpst_blob = 
+			get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"DPST Histogram");
+	uint32_t Histogram[DPST_BIN_COUNT] =(uint32_t)
+	DD_DPST_ARGS args ;
+	args.Aggressiveness_Level = DPST_AGGRESSIVENESS ;
+	args.Histogram =
+}
+
+
+*/
 
 static void test_dpst_requirement(void)
 {
@@ -93,6 +110,7 @@ static void test_dpst_requirement(void)
 	igt_require_f(is_sdr,"The panel is not in SDR Mode");
 	*/
 }
+
 static drmModePropertyBlobRes *get_dpst_blob(int fd, uint32_t type, uint32_t id, const char *name )
 {
         drmModePropertyBlobRes *blob = NULL;
@@ -114,6 +132,14 @@ static drmModePropertyBlobRes *get_dpst_blob(int fd, uint32_t type, uint32_t id,
         return blob;
 }
 
+                blob = drmModeGetPropertyBlob(fd, blob_id);
+
+        igt_assert(blob);
+	
+	printf("Successfully read the Blob Property");
+        return blob;
+}
+
 static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
 {
         drmModeObjectPropertiesPtr props =
@@ -125,8 +151,7 @@ static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
         igt_assert(props);
         if (atomic)
                 req = drmModeAtomicAlloc();
-	printf("ENUM =%d\n",IGT_CRTC_DPST);
-	dpst_id	   = props->props[IGT_CRTC_DPST];
+/*	dpst_id	   = props->props[IGT_CRTC_DPST];
 	dpst_value = props->prop_values[IGT_CRTC_DPST];
 	drmModePropertyPtr prop = drmModeGetProperty(fd, dpst_id);
 	igt_assert(prop);
@@ -161,16 +186,59 @@ static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
                 igt_assert_eq(ret, 0);
                 drmModeAtomicFree(req);
         }
-        
+  */
+        for (i = 0; i < props->count_props; i++) {
+                uint32_t prop_id = props->props[i];
+                uint64_t prop_value = props->prop_values[i];
+                drmModePropertyPtr prop = drmModeGetProperty(fd, prop_id);
+                igt_assert(prop);
+                printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
+                if(strcmp(prop->name,"DPST"))
+                        continue;
+                printf("Here is the enum valu= %d\n",i);
+        //      printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
+                dpst_id = prop_id;
+                dpst_value =1 ;
+
+                printf("Setting DPST Prop value\n");
+                if (!atomic) {
+                        ret = drmModeObjectSetProperty(fd, id, type, dpst_id, dpst_value);
+                        igt_assert_eq(ret, 0);
+                }
+                else {
+                ret = drmModeAtomicAddProperty(req, id, dpst_id, dpst_value);
+                igt_assert(ret >= 0);
+              //  ret = drmModeAtomicCommit(fd, req, DRM_MODE_ATOMIC_TEST_ONLY, NULL)
+                ret = drmModeAtomicCommit(fd, req, DRM_MODE_ATOMIC_NONBLOCK, NULL);
+                igt_assert_eq(ret, 0);
+                }
+                drmModeFreeProperty(prop);
+        }
+        drmModeFreeObjectProperties(props);
+        drmModeObjectPropertiesPtr  props1 = drmModeObjectGetProperties(fd, id, type);
+        for (i = 0; i < props1->count_props; i++) {
+                printf(" After: prop_id=%d ,property value=%ld,name =%s\n",prop_id1 ,prop_value1,prop1->name);
+                drmModeFreeProperty(prop1);
+        }
+
+        drmModeFreeObjectProperties(props1);
+        if (atomic) {
+                ret = drmModeAtomicCommit(fd, req, 0, NULL);
+                igt_assert_eq(ret, 0);
+                drmModeAtomicFree(req);
+        }
+  	
 }
+
 static void run_crtc_property_for_dpst(igt_display_t *display, enum pipe pipe, igt_output_t *output,bool atomic)
 {
 	struct igt_fb fb;
         prepare_pipe(display, pipe, output, &fb);
        	igt_info("Fetching crtc properties on %s (output: %s)\n", kmstest_pipe_name(pipe), output->name);
-	//test_DPST_properties(display->drm_fd, DRM_MODE_OBJECT_CRTC, display->pipes[pipe].crtc_id,atomic);
+	test_DPST_properties(display->drm_fd, DRM_MODE_OBJECT_CRTC, display->pipes[pipe].crtc_id,atomic);
 	printf("Checking Blob Property\n");
-	drmModePropertyBlobRes *dpst_blob=get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"MODE_ID");
+	prepare_pipe(display, pipe, output, &fb);
+	drmModePropertyBlobRes *dpst_blob=get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"DPST Histogram");
 	drmModeFreePropertyBlob(dpst_blob);
         cleanup_pipe(display, pipe, output, &fb);
 }
@@ -198,7 +266,6 @@ run_tests_for_dpst(igt_display_t *display,bool atomic)
         igt_skip_on(!found_any_valid_pipe);
 }
 
-
 igt_main
 {
 	igt_display_t display;
@@ -216,4 +283,3 @@ igt_main
                 igt_display_fini(&display);
         }
 }
-                                                                                                             

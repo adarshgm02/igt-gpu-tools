@@ -593,9 +593,9 @@ const char * const igt_crtc_prop_names[IGT_NUM_CRTC_PROPS] = {
 	[IGT_CRTC_ACTIVE] = "ACTIVE",
 	[IGT_CRTC_OUT_FENCE_PTR] = "OUT_FENCE_PTR",
 	[IGT_CRTC_VRR_ENABLED] = "VRR_ENABLED",
+	[IGT_CRTC_DPST] = "DPST",
 	[IGT_CRTC_DPST_HISTOGRAM]="DPST Histogram",
 	[IGT_CRTC_DPST_PIXEL_FACTOR]="DPST Pixel Factor",
-	[IGT_CRTC_DPST] = "DPST",
 };
 
 const char * const igt_connector_prop_names[IGT_NUM_CONNECTOR_PROPS] = {
