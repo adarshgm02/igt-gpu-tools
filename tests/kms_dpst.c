@@ -20,6 +20,7 @@ bool is_pwm  			= false ;
 bool is_8bpc 			= false ;
 bool is_sdr 			= false ;
 
+/*
 typedef struct {
         int drm_fd;
         int debugfs_fd;
@@ -43,7 +44,7 @@ static void check_for_edp(data_t *data)
 		is_edp = true ;
         }
 }
-
+*/
 static void prepare_pipe(igt_display_t *display, enum pipe pipe, igt_output_t *output, struct igt_fb *fb)
 {
         drmModeModeInfo *mode = igt_output_get_mode(output);
@@ -128,15 +129,12 @@ static drmModePropertyBlobRes *get_dpst_blob(int fd, uint32_t type, uint32_t id,
         return blob;
 }
 
-static int set_pixel_factor_and_brightness(igt_pipe_t *pipe )
+static int set_pixel_factor_and_brightness(igt_pipe_t *pipe, DD_DPST_ARGS *argsPtr)
 {
-	DD_DPST_ARGS compargs,*argsPtr;
 
 	size_t size;
 
 	uint32_t DietFactor[DPST_IET_LUT_LENGTH],brightness_val;
-
-	argsPtr = &compargs;
 
         brightness_val = argsPtr->Backlight_level; 
 
@@ -151,11 +149,13 @@ static int set_pixel_factor_and_brightness(igt_pipe_t *pipe )
 	return 0;
 }
 
-static int send_data_to_DPST_algorithm(igt_display_t *display, enum pipe pipe)
+static DD_DPST_ARGS *send_data_to_DPST_algorithm(igt_display_t *display, enum pipe pipe)
 {
+	drmModePropertyBlobRes *dpst_blob;
+
 	DD_DPST_ARGS args ,*argsPtr;
 
-	uint32_t Histogram[DPST_BIN_COUNT];
+	uint32_t Histogram[DPST_BIN_COUNT] , *Histogram_ptr;
 
 	argsPtr = &args;
 
@@ -165,10 +165,10 @@ static int send_data_to_DPST_algorithm(igt_display_t *display, enum pipe pipe)
 
 	printf("After entering Uevent \n");
 
-	drmModePropertyBlobRes *dpst_blob = 
+	dpst_blob = 
 		get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"DPST Histogram");
 
-	uint32_t *Histogram_ptr	=(uint32_t *) dpst_blob->data ;
+	Histogram_ptr	= (uint32_t *) dpst_blob->data ;
 
 	for(int i =0 ;i<DPST_BIN_COUNT ;i++)
 	{
@@ -180,11 +180,13 @@ static int send_data_to_DPST_algorithm(igt_display_t *display, enum pipe pipe)
 	
 	argsPtr->Aggressiveness_Level = DPST_AGGRESSIVENESS ;
 
+	printf("Before Calling API %d \n",argsPtr->Aggressiveness_Level);
+
 	SetHistogramDataBin(argsPtr);
 
 	drmModeFreePropertyBlob(dpst_blob);
 
-	return 0;
+	return argsPtr;
 }
 
 
@@ -201,7 +203,7 @@ static void test_dpst_requirement(void)
 
 static void enable_DPST_property(int fd, uint32_t type, uint32_t id,bool atomic)
 {
-        drmModeObjectPropertiesPtr props =
+        drmModeObjectPropertiesPtr props1, props =
                 drmModeObjectGetProperties(fd, id, type);
         int i, ret;
 	uint32_t dpst_id;
@@ -251,11 +253,11 @@ static void enable_DPST_property(int fd, uint32_t type, uint32_t id,bool atomic)
                 uint64_t prop_value = props->prop_values[i];
                 drmModePropertyPtr prop = drmModeGetProperty(fd, prop_id);
                 igt_assert(prop);
-                printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
+             //   printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
                 if(strcmp(prop->name,"DPST"))
                         continue;
                 printf("Here is the enum valu= %d\n",i);
-        //      printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
+        	printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
                 dpst_id = prop_id;
                 dpst_value =1 ;
 
@@ -267,14 +269,14 @@ static void enable_DPST_property(int fd, uint32_t type, uint32_t id,bool atomic)
                 else {
                 ret = drmModeAtomicAddProperty(req, id, dpst_id, dpst_value);
                 igt_assert(ret >= 0);
-              //  ret = drmModeAtomicCommit(fd, req, DRM_MODE_ATOMIC_TEST_ONLY, NULL)
+
                 ret = drmModeAtomicCommit(fd, req, DRM_MODE_ATOMIC_NONBLOCK, NULL);
                 igt_assert_eq(ret, 0);
                 }
                 drmModeFreeProperty(prop);
         }
         drmModeFreeObjectProperties(props);
-        drmModeObjectPropertiesPtr  props1 = drmModeObjectGetProperties(fd, id, type);
+        props1 = drmModeObjectGetProperties(fd, id, type);
         for (i = 0; i < props1->count_props; i++) {
                 uint32_t prop_id1 = props1->props[i];
                 uint64_t prop_value1 = props1->prop_values[i];
@@ -301,6 +303,8 @@ static void run_crtc_property_for_dpst(igt_display_t *display, enum pipe pipe, i
 {
 	struct igt_fb fb;
 
+	DD_DPST_ARGS *args;
+
         prepare_pipe(display, pipe, output, &fb);
 
        	igt_info("Fetching crtc property for DPST on %s (output: %s) and Enabling it.\n", kmstest_pipe_name(pipe), output->name);
@@ -309,14 +313,12 @@ static void run_crtc_property_for_dpst(igt_display_t *display, enum pipe pipe, i
 
 	printf("Checking Blob Property : %s \n", test);
 	prepare_pipe(display, pipe, output, &fb);
-	//drmModePropertyBlobRes *dpst_blob=get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"DPST Histogram");
-	//drmModeFreePropertyBlob(dpst_blob);
 	
         if(!strcmp(test,"Read-DPST-Histogram"))
-		igt_assert_eq(send_data_to_DPST_algorithm(display,pipe),0);
+		args=send_data_to_DPST_algorithm(display,pipe);
 
 	if(!strcmp(test,"Write-DPS-PixelFactor"))
-	       	igt_assert_eq(set_pixel_factor_and_brightness(display->pipes),0);
+	       	igt_assert_eq(set_pixel_factor_and_brightness(display->pipes,args),0);
 
         cleanup_pipe(display, pipe, output, &fb);
 }
@@ -326,6 +328,7 @@ run_tests_for_dpst(igt_display_t *display,bool atomic, const char* test)
 {
         bool found_any_valid_pipe = false, found;
         enum pipe pipe;
+	drmModeConnectorPtr con;
         igt_output_t *output;
 	printf("checkpoint1\n");
 	if(atomic)
@@ -335,7 +338,7 @@ run_tests_for_dpst(igt_display_t *display,bool atomic, const char* test)
                 found = false;
                 for_each_valid_output_on_pipe(display, pipe, output) {
                         found_any_valid_pipe = found = true;
-			drmModeConnectorPtr con = output->config.connector;
+			con = output->config.connector;
 			if (con->connector_type == DRM_MODE_CONNECTOR_eDP)
 				run_crtc_property_for_dpst(display, pipe, output,atomic,test);
                         printf("Checkpoint3\n");
