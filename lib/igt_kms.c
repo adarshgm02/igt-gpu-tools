@@ -4778,6 +4778,26 @@ bool igt_lease_change_detected(struct udev_monitor *mon, int timeout_secs)
 }
 
 /**
+ * igt_dpst_histogram_event_detected:
+ * @mon: A udev monitor initialized with #igt_watch_uevents
+ * @timeout_secs: How long to wait for a lease change event to occur.
+ *
+ * Detect if a DPST Histogram event was received since we last checked the monitor.
+ *
+ * Returns: true if a sysfs DPST Histogram event was received, false if we timed out
+ */
+
+
+bool igt_dpst_histogram_event_detected(struct udev_monitor *mon, int timeout_secs)
+{
+        const char *props[1] = {"DPST Histogram"};
+        int expected_val = 1;
+
+        return event_detected(mon, timeout_secs, props, &expected_val,
+                              ARRAY_SIZE(props));
+}
+
+/**
  * igt_flush_uevents:
  * @mon: A udev monitor initialized with #igt_watch_uevents
  *

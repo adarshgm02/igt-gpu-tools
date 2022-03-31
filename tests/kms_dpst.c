@@ -4,13 +4,15 @@
 
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-#define DPST_ENABLE 	1
-#define DPST_DISABLE 	0
-#define DPST_AGGRESSIVENESS 2
+#define DPST_ENABLE 		1
+#define DPST_DISABLE 		0
+#define DPST_AGGRESSIVENESS	2
+#define BACKLIGHT_PATH "/sys/class/backlight/intel_backlight"
 
 bool is_edp  			= false ;
 bool is_battery_mode		= false ;
@@ -27,7 +29,7 @@ typedef struct {
         igt_output_t *output;
 } data_t;
 
-static void setup_output(data_t *data)
+static void check_for_edp(data_t *data)
 {
         igt_output_t *output;
 	igt_display_t *display = &data->display;
@@ -38,12 +40,7 @@ static void setup_output(data_t *data)
 
                 if (con->connector_type != DRM_MODE_CONNECTOR_eDP)
 			continue;
-		else
-			is_edp = true ;
-                igt_output_set_pipe(output, pipe);               
-                data->output = output;
-		data->mode = igt_output_get_mode(output);
-                return;
+		is_edp = true ;
         }
 }
 
@@ -75,6 +72,41 @@ static void cleanup_pipe(igt_display_t *display, enum pipe pipe, igt_output_t *o
         igt_remove_fb(display->drm_fd, fb);
 }
 
+static int dpst_backlight_write(int value, const char *fname)
+{
+        int fd;
+        char full[PATH_MAX];
+        char src[64];
+        int len;
+
+        igt_assert(snprintf(full, PATH_MAX, "%s/%s", BACKLIGHT_PATH, fname) < PATH_MAX);
+        fd = open(full, O_WRONLY);
+        if (fd == -1)
+                return -errno;
+
+        len = snprintf(src, sizeof(src), "%i", value);
+        len = write(fd, src, len);
+        close(fd);
+
+        if (len < 0)
+                return len;
+
+        return 0;
+}
+
+static void dpst_uevent(int timeout)
+{
+	struct udev_monitor *uevent_monitor;
+
+	uevent_monitor = igt_watch_uevents();
+
+	igt_flush_uevents(uevent_monitor);
+
+	igt_assert(igt_dpst_histogram_event_detected(uevent_monitor, timeout));
+
+	igt_cleanup_uevents(uevent_monitor);
+}
+
 static drmModePropertyBlobRes *get_dpst_blob(int fd, uint32_t type, uint32_t id, const char *name )
 {
         drmModePropertyBlobRes *blob = NULL;
@@ -96,26 +128,45 @@ static drmModePropertyBlobRes *get_dpst_blob(int fd, uint32_t type, uint32_t id,
         return blob;
 }
 
-void set_pixel_factor(igt_pipe_t *pipe )
+static int set_pixel_factor_and_brightness(igt_pipe_t *pipe )
 {
-	DD_DPST_ARGS compargs =Set_BacklightLevel_DietFactor();
+	DD_DPST_ARGS compargs,*argsPtr;
 
-	uint32_t DietFactor[DPST_IET_LUT_LENGTH];
+	size_t size;
 
-	memcpy(DietFactor,compargs.DietFactor ,sizeof(compargs.DietFactor));
-	//	uint32_t DietFactor[DPST_IET_LUT_LENGTH] = compargs.DietFactor ;
-        size_t size = sizeof(DietFactor);
+	uint32_t DietFactor[DPST_IET_LUT_LENGTH],brightness_val;
+
+	argsPtr = &compargs;
+
+        brightness_val = argsPtr->Backlight_level; 
+
+	memcpy(DietFactor,argsPtr->DietFactor ,sizeof(argsPtr->DietFactor));
+        
+	size = sizeof(DietFactor);
 
         igt_pipe_obj_replace_prop_blob(pipe,IGT_CRTC_DPST_PIXEL_FACTOR,DietFactor, size);
+
+	igt_assert_eq(dpst_backlight_write(brightness_val, "brightness"), 0);
+
+	return 0;
 }
 
-void send_data_to_DPST_algorithm(igt_display_t *display, enum pipe pipe)
+static int send_data_to_DPST_algorithm(igt_display_t *display, enum pipe pipe)
 {
-	DD_DPST_ARGS args ;
+	DD_DPST_ARGS args ,*argsPtr;
+
 	uint32_t Histogram[DPST_BIN_COUNT];
 
+	argsPtr = &args;
+
+	printf("Before entering Uevent \n");
+
+	dpst_uevent(10);
+
+	printf("After entering Uevent \n");
+
 	drmModePropertyBlobRes *dpst_blob = 
-			get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"DPST Histogram");
+		get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"DPST Histogram");
 
 	uint32_t *Histogram_ptr	=(uint32_t *) dpst_blob->data ;
 
@@ -125,13 +176,15 @@ void send_data_to_DPST_algorithm(igt_display_t *display, enum pipe pipe)
 		printf("Historgram[%d] = %d \n",i,Histogram[i] );
 	}
 
-	args.Aggressiveness_Level = DPST_AGGRESSIVENESS ;
+	memcpy(argsPtr->Histogram,Histogram,sizeof(Histogram));
+	
+	argsPtr->Aggressiveness_Level = DPST_AGGRESSIVENESS ;
 
-	memcpy(args.Histogram,Histogram,sizeof(Histogram));
-	//args.Histogram = Histogram;
-	SetHistogramDataBin(args);
+	SetHistogramDataBin(argsPtr);
 
 	drmModeFreePropertyBlob(dpst_blob);
+
+	return 0;
 }
 
 
@@ -146,7 +199,7 @@ static void test_dpst_requirement(void)
 	*/
 }
 
-static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
+static void enable_DPST_property(int fd, uint32_t type, uint32_t id,bool atomic)
 {
         drmModeObjectPropertiesPtr props =
                 drmModeObjectGetProperties(fd, id, type);
@@ -247,16 +300,23 @@ static void test_DPST_properties(int fd, uint32_t type, uint32_t id,bool atomic)
 static void run_crtc_property_for_dpst(igt_display_t *display, enum pipe pipe, igt_output_t *output,bool atomic,const char* test)
 {
 	struct igt_fb fb;
+
         prepare_pipe(display, pipe, output, &fb);
-       	igt_info("Fetching crtc properties on %s (output: %s)\n", kmstest_pipe_name(pipe), output->name);
-	if(strcmp(test,"Enable-DPST")==0)
-		test_DPST_properties(display->drm_fd, DRM_MODE_OBJECT_CRTC, display->pipes[pipe].crtc_id,atomic);
+
+       	igt_info("Fetching crtc property for DPST on %s (output: %s) and Enabling it.\n", kmstest_pipe_name(pipe), output->name);
+	if(!strcmp(test,"Enable-DPST"))
+		enable_DPST_property(display->drm_fd, DRM_MODE_OBJECT_CRTC, display->pipes[pipe].crtc_id,atomic);
+
 	printf("Checking Blob Property : %s \n", test);
 	prepare_pipe(display, pipe, output, &fb);
 	//drmModePropertyBlobRes *dpst_blob=get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"DPST Histogram");
 	//drmModeFreePropertyBlob(dpst_blob);
-        if(strcmp(test,"Read-DPST-Histogram")==0)
-		send_data_to_DPST_algorithm(display,pipe);
+	
+        if(!strcmp(test,"Read-DPST-Histogram"))
+		igt_assert_eq(send_data_to_DPST_algorithm(display,pipe),0);
+
+	if(!strcmp(test,"Write-DPS-PixelFactor"))
+	       	igt_assert_eq(set_pixel_factor_and_brightness(display->pipes),0);
 
         cleanup_pipe(display, pipe, output, &fb);
 }
@@ -275,7 +335,9 @@ run_tests_for_dpst(igt_display_t *display,bool atomic, const char* test)
                 found = false;
                 for_each_valid_output_on_pipe(display, pipe, output) {
                         found_any_valid_pipe = found = true;
-                       	run_crtc_property_for_dpst(display, pipe, output,atomic,test);
+			drmModeConnectorPtr con = output->config.connector;
+			if (con->connector_type == DRM_MODE_CONNECTOR_eDP)
+				run_crtc_property_for_dpst(display, pipe, output,atomic,test);
                         printf("Checkpoint3\n");
 			break;
                 }
@@ -303,7 +365,7 @@ igt_main
 	
 	igt_describe("verify if the Pixel Factor Blob Data can be written.");
         igt_subtest("Write-DPS-PixelFactor")
-                run_tests_for_dpst(&display,true,"write-DPST Pixel Factor");
+                run_tests_for_dpst(&display,true,"Write-DPS-PixelFactor");
 
         igt_fixture {
                 igt_display_fini(&display);
