@@ -4790,7 +4790,7 @@ bool igt_lease_change_detected(struct udev_monitor *mon, int timeout_secs)
 
 bool igt_dpst_histogram_event_detected(struct udev_monitor *mon, int timeout_secs)
 {
-        const char *props[1] = {"DPST Histogram"};
+        const char *props[1] = {"DPST"};
         int expected_val = 1;
 
         return event_detected(mon, timeout_secs, props, &expected_val,
