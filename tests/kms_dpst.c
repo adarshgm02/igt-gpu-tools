@@ -11,7 +11,7 @@
 
 #define DPST_ENABLE 		1
 #define DPST_DISABLE 		0
-#define DPST_AGGRESSIVENESS	2
+#define DPST_AGGRESSIVENESS	3
 #define BACKLIGHT_PATH "/sys/class/backlight/intel_backlight"
 
 bool is_edp  			= false ;
@@ -20,56 +20,23 @@ bool is_pwm  			= false ;
 bool is_8bpc 			= false ;
 bool is_sdr 			= false ;
 
-/*
-typedef struct {
-        int drm_fd;
-        int debugfs_fd;
-        uint32_t crtc_id;
-        igt_display_t display;
-	 drmModeModeInfo *mode;
-        igt_output_t *output;
-} data_t;
-
-static void check_for_edp(data_t *data)
-{
-        igt_output_t *output;
-	igt_display_t *display = &data->display;
-	enum pipe pipe ;
-        for_each_pipe_with_valid_output(display, pipe, output) {
-                drmModeConnectorPtr con = output->config.connector;
-		printf(" connector type = %d pipe=%d \n",con->connector_type,pipe);
-
-                if (con->connector_type != DRM_MODE_CONNECTOR_eDP)
-			continue;
-		is_edp = true ;
-        }
-}
-*/
 static void prepare_pipe(igt_display_t *display, enum pipe pipe, igt_output_t *output, struct igt_fb *fb)
 {
         drmModeModeInfo *mode = igt_output_get_mode(output);
-
         igt_create_pattern_fb(display->drm_fd, mode->hdisplay, mode->vdisplay,
                               DRM_FORMAT_XRGB8888, DRM_FORMAT_MOD_LINEAR, fb);
-
         igt_output_set_pipe(output, pipe);
-
         igt_plane_set_fb(igt_output_get_plane_type(output, DRM_PLANE_TYPE_PRIMARY), fb);
-
         igt_display_commit2(display, display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
 }
 
 static void cleanup_pipe(igt_display_t *display, enum pipe pipe, igt_output_t *output, struct igt_fb *fb)
 {
         igt_plane_t *plane;
-
         for_each_plane_on_pipe(display, pipe, plane)
                 igt_plane_set_fb(plane, NULL);
-
         igt_output_set_pipe(output, PIPE_NONE);
-
         igt_display_commit2(display, display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
-
         igt_remove_fb(display->drm_fd, fb);
 }
 
@@ -98,13 +65,9 @@ static int dpst_backlight_write(int value, const char *fname)
 static void dpst_uevent(int timeout)
 {
 	struct udev_monitor *uevent_monitor;
-
 	uevent_monitor = igt_watch_uevents();
-
 	igt_flush_uevents(uevent_monitor);
-
 	igt_assert(igt_dpst_histogram_event_detected(uevent_monitor, timeout));
-
 	igt_cleanup_uevents(uevent_monitor);
 }
 
@@ -119,30 +82,25 @@ static drmModePropertyBlobRes *get_dpst_blob(int fd, uint32_t type, uint32_t id,
                                    type,
                                    name,
                                    NULL, &blob_id, NULL);
-        printf("blob_id : %ld\n",blob_id);
         if (ret)
                 blob = drmModeGetPropertyBlob(fd, blob_id);
 
         igt_assert(blob);
 
-        printf("Successfully read the Blob Property");
+        igt_info("Successfully read the DPST Blob Property\n");
         return blob;
 }
 
 static int set_pixel_factor_and_brightness(igt_pipe_t *pipe, DD_DPST_ARGS *argsPtr)
 {
 	size_t size;
-
 	uint32_t DietFactor[DPST_IET_LUT_LENGTH],brightness_val;
-
-        brightness_val = argsPtr->Backlight_level; 
-
-	memcpy(DietFactor,argsPtr->DietFactor ,sizeof(argsPtr->DietFactor));
         
+	brightness_val = argsPtr->Backlight_level; 
+	memcpy(DietFactor,argsPtr->DietFactor ,sizeof(argsPtr->DietFactor));
+	
 	size = sizeof(DietFactor);
-
         igt_pipe_obj_replace_prop_blob(pipe,IGT_CRTC_DPST_PIXEL_FACTOR,DietFactor, size);
-
 	igt_assert_eq(dpst_backlight_write(brightness_val, "brightness"), 0);
 
 	return 0;
@@ -151,47 +109,32 @@ static int set_pixel_factor_and_brightness(igt_pipe_t *pipe, DD_DPST_ARGS *argsP
 static DD_DPST_ARGS *send_data_to_DPST_algorithm(igt_display_t *display, enum pipe pipe,igt_output_t *output)
 {
 	drmModePropertyBlobRes *dpst_blob;
-
 	DD_DPST_ARGS *argsPtr = (DD_DPST_ARGS *)malloc(sizeof(DD_DPST_ARGS));
-
 	uint32_t Histogram[DPST_BIN_COUNT] , *Histogram_ptr;
-
 	drmModeModeInfo *mode;
 
-	mode = igt_output_get_mode(output);
-
-	printf("Before entering Uevent \n");
-
+	igt_info("Waiting for DPST Uevent\n");
 	dpst_uevent(10);
 
-	printf("After entering Uevent \n");
-
 	dpst_blob = 
-		get_dpst_blob(display->drm_fd,DRM_MODE_OBJECT_CRTC,display->pipes[pipe].crtc_id,"DPST Histogram");
+		get_dpst_blob(display->drm_fd, DRM_MODE_OBJECT_CRTC, display->pipes[pipe].crtc_id, "DPST Histogram");
 
-	igt_assert_f(dpst_blob,"Failed to  Read DPST HIstogram Blob");
+	igt_assert_f(dpst_blob,"Failed to read DPST HIstogram Blob\n");
 
 	Histogram_ptr	= (uint32_t *) dpst_blob->data ;
-
 	for(int i =0 ;i<DPST_BIN_COUNT ;i++)
 	{
 		Histogram[i]= *(Histogram_ptr + i);
-		printf("Historgram[%d] = %d \n",i,Histogram[i] );
+		igt_info("Historgram[%d] = %d \n", i, Histogram[i]);
 	}
 
 	memcpy(argsPtr->Histogram,Histogram,sizeof(Histogram));
-	
 	argsPtr->Aggressiveness_Level = DPST_AGGRESSIVENESS ;
-
 	argsPtr->Resolution_X = mode->hdisplay;
-
 	argsPtr->Resolution_Y = mode->vdisplay;
 
-	printf("Before Calling API %d \n",argsPtr->Aggressiveness_Level);
-
+	igt_info("Making the call to DPST Alogorithm Library");
 	SetHistogramDataBin(argsPtr);
-
-	printf("After Calling API %d \n",argsPtr->Aggressiveness_Level);
 
 	drmModeFreePropertyBlob(dpst_blob);
 
@@ -201,6 +144,7 @@ static DD_DPST_ARGS *send_data_to_DPST_algorithm(igt_display_t *display, enum pi
 
 static void test_dpst_requirement(void)
 {
+	/* This Block is for Future Enhancement */
 	/*
 	igt_require_f(is_edp ,"The connected Panel is not of tyepe edp\n");
 	igt_require_f(is_battery_mode ,"The Display is not in Dc/ Battery Mode");
@@ -210,9 +154,9 @@ static void test_dpst_requirement(void)
 	*/
 }
 
-static void enable_DPST_property(int fd, uint32_t type, uint32_t id,bool atomic)
+static void enable_DPST_property(int fd, uint32_t type, uint32_t id, bool atomic)
 {
-        drmModeObjectPropertiesPtr props1, props =
+        drmModeObjectPropertiesPtr props_dpst, props =
                 drmModeObjectGetProperties(fd, id, type);
         int i, ret;
 	uint32_t dpst_id;
@@ -229,10 +173,10 @@ static void enable_DPST_property(int fd, uint32_t type, uint32_t id,bool atomic)
 
                 if(strcmp(prop->name,"DPST"))
                         continue;
-        	printf("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
+        	igt_info("prop_id=%d ,property value=%ld,name =%s\n",prop_id ,prop_value,prop->name);
                 dpst_id = prop_id;
 
-                printf("Setting DPST Prop value\n");
+                igt_info("Setting the DPST CRTC property to 1 or Enable\n");
                 if (!atomic) {
                         ret = drmModeObjectSetProperty(fd, id, type, dpst_id, DPST_ENABLE);
                         igt_assert_eq(ret, 0);
@@ -248,21 +192,23 @@ static void enable_DPST_property(int fd, uint32_t type, uint32_t id,bool atomic)
         }
 
         drmModeFreeObjectProperties(props);
-        props1 = drmModeObjectGetProperties(fd, id, type);
-        for (i = 0; i < props1->count_props; i++) {
-                uint32_t prop_id1 = props1->props[i];
-                uint64_t prop_value1 = props1->prop_values[i];
-                drmModePropertyPtr prop1 = drmModeGetProperty(fd, prop_id1);
+        props_dpst = drmModeObjectGetProperties(fd, id, type);
+        for (i = 0; i < props_dpst->count_props; i++) {
+                uint32_t prop_id_2 = props_dpst->props[i];
+                uint64_t prop_value_2 = props_dpst->prop_values[i];
+                drmModePropertyPtr prop_dpst = drmModeGetProperty(fd, prop_id_2);
 
-                igt_assert(prop1);
-                if(strcmp(prop1->name,"DPST"))
+                igt_assert(prop_dpst);
+                if(strcmp(prop_dpst->name,"DPST"))
                         continue;
-                printf(" After: prop_id=%d ,property value=%ld,name =%s\n",prop_id1 ,prop_value1,prop1->name);
-		igt_assert_f(prop_value1 == DPST_ENABLE,"DPST ENABLE FAILED");
-                drmModeFreeProperty(prop1);
+                igt_info("Values After Enabling DPST : prop_id=%d, property value=%ld, name =%s\n",
+				prop_id_2 ,prop_value_2,prop_dpst->name);
+
+		igt_assert_f(prop_value_2 == DPST_ENABLE,"DPST ENABLE FAILED\n");
+                drmModeFreeProperty(prop_dpst);
         }
 
-        drmModeFreeObjectProperties(props1);
+        drmModeFreeObjectProperties(props_dpst);
         if (atomic) {
                 ret = drmModeAtomicCommit(fd, req, 0, NULL);
                 igt_assert_eq(ret, 0);
@@ -271,57 +217,46 @@ static void enable_DPST_property(int fd, uint32_t type, uint32_t id,bool atomic)
 	
 }
 
-static void run_crtc_property_for_dpst(igt_display_t *display, enum pipe pipe, igt_output_t *output,bool atomic,const char* test)
+static void run_crtc_property_for_dpst(igt_display_t *display, enum pipe pipe, igt_output_t *output,bool atomic)
 {
 	struct igt_fb fb;
-
 	DD_DPST_ARGS *args;
-
-        prepare_pipe(display, pipe, output, &fb);
-
-	if(!strcmp(test,"Enable-DPST")){
-		igt_info("Enabling DPST on %s (output: %s) \n", kmstest_pipe_name(pipe), output->name);
-		enable_DPST_property(display->drm_fd, DRM_MODE_OBJECT_CRTC, display->pipes[pipe].crtc_id,atomic);
-	}
-
+        
 	prepare_pipe(display, pipe, output, &fb);
+	igt_info("Enabling DPST on %s (output: %s) \n", kmstest_pipe_name(pipe), output->name);
+	enable_DPST_property(display->drm_fd, DRM_MODE_OBJECT_CRTC, display->pipes[pipe].crtc_id,atomic);
 	
-        if(!strcmp(test,"Read-DPST-Histogram")){
-		igt_info("Reading the Histogram Blob on %s (output: %s) and Passing it along with Agressiveness Level to the DPST Library \n", kmstest_pipe_name(pipe), output->name);
-		args=send_data_to_DPST_algorithm(display,pipe,output);
-	}
+	cleanup_pipe(display, pipe, output, &fb);
+	prepare_pipe(display, pipe, output, &fb);
 
-	if(!strcmp(test,"Write-DPS-PixelFactor"))
-	{
-	       	igt_assert_eq(set_pixel_factor_and_brightness(display->pipes,args),0);
-		igt_display_commit2(display, display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
-	}
+	igt_info("Reading the Histogram Blob on %s (output: %s) and Passing it to the DPST Library \n",
+		       	kmstest_pipe_name(pipe), output->name);
+	args=send_data_to_DPST_algorithm(display,pipe,output);
+
+	igt_info("Writing Pixel Factor Blob and Setting Brightness value\n");
+	igt_assert_eq(set_pixel_factor_and_brightness(display->pipes,args),0);
+	igt_display_commit2(display, display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
 
         cleanup_pipe(display, pipe, output, &fb);
 }
 
 static void
-run_tests_for_dpst(igt_display_t *display,bool atomic, const char* test)
+run_tests_for_dpst(igt_display_t *display,bool atomic)
 {
         bool found_any_valid_pipe = false, found;
         enum pipe pipe;
 	drmModeConnectorPtr con;
         igt_output_t *output;
-	printf("checkpoint1\n");
 	if(atomic)
 		igt_skip_on(!display->is_atomic);
-	printf("checkpoint2\n");
-        for_each_pipe(display, pipe) {
-                found = false;
-                for_each_valid_output_on_pipe(display, pipe, output) {
-                        found_any_valid_pipe = found = true;
-			con = output->config.connector;
-			if (con->connector_type == DRM_MODE_CONNECTOR_eDP)
-				run_crtc_property_for_dpst(display, pipe, output,atomic,test);
-                        printf("Checkpoint3\n");
-			break;
+	found = false;
+        for_each_valid_output_on_pipe(display, pipe, output) {
+		found_any_valid_pipe = found = true;
+		con = output->config.connector;
+		if (con->connector_type == DRM_MODE_CONNECTOR_eDP)
+			run_crtc_property_for_dpst(display, pipe, output,atomic);
+		break;
                 }
-        }
 
         igt_skip_on(!found_any_valid_pipe);
 }
@@ -335,17 +270,9 @@ igt_main
                 igt_display_require(&display,display.drm_fd);
 		test_dpst_requirement();
         }
-	igt_describe("verify if the DPST can be Enabled and Disabled");
-        igt_subtest("Enable-Disable-DPST")
-                run_tests_for_dpst(&display,true,"Enable-DPST");
-
-	igt_describe("verify if the Histogram Blob Data can be Read and also send the data tp the Algorithm");
-        igt_subtest("Read-DPST-Histogram")
-                run_tests_for_dpst(&display,true,"Read-DPST-Histogram");
-	
-	igt_describe("verify if the Pixel Factor Blob Data can be written.");
-        igt_subtest("Write-DPS-PixelFactor")
-                run_tests_for_dpst(&display,true,"Write-DPS-PixelFactor");
+	igt_describe("Verifyng  DPST Enablement - Read Histogram Blob - Write Pixel factor blob and Brightness");
+        igt_subtest("Enable-DPST")
+                run_tests_for_dpst(&display,true);
 
         igt_fixture {
                 igt_display_fini(&display);
