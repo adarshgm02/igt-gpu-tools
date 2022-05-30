@@ -594,8 +594,8 @@ const char * const igt_crtc_prop_names[IGT_NUM_CRTC_PROPS] = {
 	[IGT_CRTC_OUT_FENCE_PTR] = "OUT_FENCE_PTR",
 	[IGT_CRTC_VRR_ENABLED] = "VRR_ENABLED",
 	[IGT_CRTC_DPST] = "DPST",
-	[IGT_CRTC_DPST_HISTOGRAM]="DPST Histogram",
-	[IGT_CRTC_DPST_PIXEL_FACTOR]="DPST Pixel Factor",
+	[IGT_CRTC_DPST_HISTOGRAM] = "DPST Histogram",
+	[IGT_CRTC_DPST_PIXEL_FACTOR] = "DPST Pixel Factor",
 };
 
 const char * const igt_connector_prop_names[IGT_NUM_CONNECTOR_PROPS] = {
@@ -4790,11 +4790,10 @@ bool igt_lease_change_detected(struct udev_monitor *mon, int timeout_secs)
 
 bool igt_dpst_histogram_event_detected(struct udev_monitor *mon, int timeout_secs)
 {
-        const char *props[1] = {"DPST"};
-        int expected_val = 1;
-
-        return event_detected(mon, timeout_secs, props, &expected_val,
-                              ARRAY_SIZE(props));
+	const char *props[1] = {"DPST"};
+	int expected_val = 1;
+	
+	return event_detected(mon, timeout_secs, props, &expected_val, ARRAY_SIZE(props));
 }
 
 /**
