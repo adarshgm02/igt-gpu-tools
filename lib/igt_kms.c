@@ -593,6 +593,9 @@ const char * const igt_crtc_prop_names[IGT_NUM_CRTC_PROPS] = {
 	[IGT_CRTC_ACTIVE] = "ACTIVE",
 	[IGT_CRTC_OUT_FENCE_PTR] = "OUT_FENCE_PTR",
 	[IGT_CRTC_VRR_ENABLED] = "VRR_ENABLED",
+	[IGT_CRTC_GHE] = "GHE",
+	[IGT_CRTC_GHE_HISTOGRAM] = "GHE Histogram",
+	[IGT_CRTC_GHE_PIXEL_FACTOR] = "GHE Pixel Factor",
 };
 
 const char * const igt_connector_prop_names[IGT_NUM_CONNECTOR_PROPS] = {
@@ -4772,6 +4775,25 @@ bool igt_lease_change_detected(struct udev_monitor *mon, int timeout_secs)
 
 	return event_detected(mon, timeout_secs, props, &expected_val,
 			      ARRAY_SIZE(props));
+}
+
+/**
+ * igt_ghe_histogram_event_detected:
+ * @mon: A udev monitor initialized with #igt_watch_uevents
+ * @timeout_secs: How long to wait for a lease change event to occur.
+ *
+ * Detect if a GHE Histogram event was received since we last checked the monitor.
+ *
+ * Returns: true if a sysfs GHE Histogram event was received, false if we timed out
+ */
+
+
+bool igt_ghe_histogram_event_detected(struct udev_monitor *mon, int timeout_secs)
+{
+        const char *props[1] = {"GHE"};
+        int expected_val = 1;
+
+        return event_detected(mon, timeout_secs, props, &expected_val, ARRAY_SIZE(props));
 }
 
 /**

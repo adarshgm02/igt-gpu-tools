@@ -251,6 +251,13 @@ i915_progs = [
 
 test_deps = [ igt_deps ]
 
+if libghe.found()
+	test_progs += [
+	  'kms_ghe',
+	  ]
+	test_deps += libghe
+endif
+
 if libdrm_nouveau.found()
 	test_progs += [
 		'prime_nv_api',
