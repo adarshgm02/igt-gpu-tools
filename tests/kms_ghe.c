@@ -23,23 +23,12 @@ static void prepare_pipe(igt_display_t *display, enum pipe pipe,
 	drmModeModeInfo *mode = igt_output_get_mode(output);
 	igt_create_image_fb(display->drm_fd,mode->hdisplay,
 			mode->vdisplay,DRM_FORMAT_XRGB8888,
-			DRM_FORMAT_MOD_LINEAR,FILENAME2,fb);
+			DRM_FORMAT_MOD_LINEAR,FILENAME1,fb);
         igt_output_set_pipe(output, pipe);
         igt_plane_set_fb(igt_output_get_plane_type(output,
 			       	DRM_PLANE_TYPE_PRIMARY), fb);
         igt_display_commit2(display, 
 			display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
-
-	
-	igt_create_image_fb(display->drm_fd,mode->hdisplay,
-                        mode->vdisplay,DRM_FORMAT_XRGB8888,
-                        DRM_FORMAT_MOD_LINEAR,FILENAME1,fb);
-        igt_output_set_pipe(output, pipe);
-        igt_plane_set_fb(igt_output_get_plane_type(output,
-                                DRM_PLANE_TYPE_PRIMARY), fb);
-        igt_display_commit2(display,
-                        display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
-	
 }
 
 static void cleanup_pipe(igt_display_t *display, enum pipe pipe,
@@ -94,7 +83,8 @@ static int set_pixel_factor(igt_pipe_t *pipe,
 
 	for(int i = 0; i<GlobalHist_IET_LUT_LENGTH; i++)
 	{
-		printf("Pixel Factor[%d] = %d\n",i,DietFactor[i]);
+		//convert this to igt_debug after validation
+		igt_info("Pixel Factor[%d] = %d\n",i,DietFactor[i]);
 	}
 	igt_pipe_obj_replace_prop_blob(pipe, IGT_CRTC_GHE_PIXEL_FACTOR,
 			DietFactor, size);
@@ -112,6 +102,7 @@ static GlobalHist_ARGS *send_data_to_ghe_algorithm(igt_display_t *display,
 
 	igt_info("Waiting for GHE Uevent\n");
 	ghe_uevent(25);
+	sleep(2);//for Histogram collection
 
 	ghe_blob = get_ghe_blob(display->drm_fd, DRM_MODE_OBJECT_CRTC,
 			display->pipes[pipe].crtc_id, "GHE Histogram");
