@@ -67,7 +67,7 @@ static drmModePropertyBlobRes *get_ghe_blob(int fd, uint32_t type,
 		blob = drmModeGetPropertyBlob(fd, blob_id);
 
 	igt_assert(blob);
-	igt_debug("Successfully read the GHE Blob Property\n");
+	igt_debug("Successfully read the Global Histogram Blob Property\n");
 	return blob;
 }
 
@@ -105,7 +105,7 @@ static GlobalHist_ARGS *send_data_to_ghe_algorithm(igt_display_t *display,
 	sleep(2);//for Histogram collection
 
 	ghe_blob = get_ghe_blob(display->drm_fd, DRM_MODE_OBJECT_CRTC,
-			display->pipes[pipe].crtc_id, "GHE Histogram");
+			display->pipes[pipe].crtc_id, "Global Histogram");
 
 	igt_assert_f(ghe_blob,"Failed to read GHE HIstogram Blob\n");
 
@@ -143,7 +143,7 @@ static void enable_ghe_property(int fd, uint32_t type, uint32_t id)
 		drmModePropertyPtr prop = drmModeGetProperty(fd, prop_id);
 		igt_assert(prop);
 
-		if(strcmp(prop->name,"GHE"))
+		if(strcmp(prop->name,"GLOBAL_HIST_EN"))
 			continue;
 		igt_debug("prop_id=%d ,property value=%ld,name =%s\n",
 				prop_id ,prop_value,prop->name);
@@ -168,7 +168,7 @@ static void enable_ghe_property(int fd, uint32_t type, uint32_t id)
 			drmModeGetProperty(fd, prop_id_2);
 
 		igt_assert(prop_ghe);
-		if(strcmp(prop_ghe->name,"GHE"))
+		if(strcmp(prop_ghe->name,"GLOBAL_HIST_EN"))
 			continue;
 		igt_debug("Values After Enabling GHE : prop_id=%d, property value=%ld, name =%s\n",
 				prop_id_2 ,prop_value_2,prop_ghe->name);
