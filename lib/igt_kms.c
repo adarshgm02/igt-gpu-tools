@@ -4792,6 +4792,7 @@ bool igt_ghe_histogram_event_detected(struct udev_monitor *mon, int timeout_secs
 {
 	const char *props[1] = {"GLOBAL_HIST"};
 	int expected_val = 1;
+
 	return event_detected(mon, timeout_secs, props, &expected_val, ARRAY_SIZE(props));
 }
 

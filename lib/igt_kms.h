@@ -851,7 +851,7 @@ bool igt_lease_change_detected(struct udev_monitor *mon,
 			       int timeout_secs);
 bool igt_connector_event_detected(struct udev_monitor *mon, uint32_t conn_id,
 				  uint32_t prop_id, int timeout_msecs);
-bool igt_ghe_histogram_event_detected(struct udev_monitor *mon, 
+bool igt_ghe_histogram_event_detected(struct udev_monitor *mon,
 		int timeout_secs);
 void igt_flush_uevents(struct udev_monitor *mon);
 void igt_cleanup_uevents(struct udev_monitor *mon);

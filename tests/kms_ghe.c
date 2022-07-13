@@ -47,13 +47,14 @@ static void prepare_pipe(igt_display_t *display, enum pipe pipe,
 		igt_output_t *output, struct igt_fb *fb)
 {
 	drmModeModeInfo *mode = igt_output_get_mode(output);
-	igt_create_image_fb(display->drm_fd, mode->hdisplay, 
-			mode->vdisplay, DRM_FORMAT_XRGB8888, 
+
+	igt_create_image_fb(display->drm_fd, mode->hdisplay,
+			mode->vdisplay, DRM_FORMAT_XRGB8888,
 			DRM_FORMAT_MOD_LINEAR, FILENAME1, fb);
 	igt_output_set_pipe(output, pipe);
-	igt_plane_set_fb(igt_output_get_plane_type(output, 
+	igt_plane_set_fb(igt_output_get_plane_type(output,
 				DRM_PLANE_TYPE_PRIMARY), fb);
-	igt_display_commit2(display, 
+	igt_display_commit2(display,
 			display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
 }
 
@@ -61,6 +62,7 @@ static void cleanup_pipe(igt_display_t *display, enum pipe pipe,
 		igt_output_t *output, struct igt_fb *fb)
 {
 	igt_plane_t *plane;
+
 	for_each_plane_on_pipe(display, pipe, plane)
 		igt_plane_set_fb(plane, NULL);
 	igt_output_set_pipe(output, PIPE_NONE);
@@ -72,7 +74,7 @@ static void cleanup_pipe(igt_display_t *display, enum pipe pipe,
 static void ghe_uevent(int timeout)
 {
 	struct udev_monitor *uevent_monitor;
-	
+
 	uevent_monitor = igt_watch_uevents();
 	igt_flush_uevents(uevent_monitor);
 	igt_assert(igt_ghe_histogram_event_detected(uevent_monitor, timeout));
@@ -164,18 +166,18 @@ static void enable_ghe_property(int fd, uint32_t type, uint32_t id)
 	int i, ret;
 	uint32_t ghe_id;
 	drmModeAtomicReqPtr req = NULL;
-	
+
 	igt_assert(props);
 	req = drmModeAtomicAlloc();
 	for (i = 0; i < props->count_props; i++) {
 		uint32_t prop_id = props->props[i];
 		uint64_t prop_value = props->prop_values[i];
-		drmModePropertyPtr prop = drmModeGetProperty(fd, prop_id);
-		
+		drmModePropertyPtr prop = drmModeGetProperty(fd, prop_id);		
+
 		igt_assert(prop);
 		if (strcmp(prop->name, "GLOBAL_HIST_EN"))
 			continue;
-		igt_debug("prop_id=%d ,property value=%ld,name =%s\n", 
+		igt_debug("prop_id=%d ,property value=%ld,name =%s\n",
 				prop_id, prop_value, prop->name);
 		ghe_id = prop_id;
 		igt_info("Setting GHE ENUM Property to Enable\n");
@@ -268,7 +270,7 @@ run_tests_for_ghe(igt_display_t *display)
 igt_main
 {
 	igt_display_t display;
-	
+
 	igt_fixture {
 		display.drm_fd = drm_open_driver_master(DRIVER_ANY);
 		kmstest_set_vt_graphics_mode();
