@@ -47,13 +47,13 @@ static void prepare_pipe(igt_display_t *display, enum pipe pipe,
 		igt_output_t *output, struct igt_fb *fb)
 {
 	drmModeModeInfo *mode = igt_output_get_mode(output);
-	igt_create_image_fb(display->drm_fd,mode->hdisplay,
-			mode->vdisplay,DRM_FORMAT_XRGB8888,
-			DRM_FORMAT_MOD_LINEAR,FILENAME1,fb);
-        igt_output_set_pipe(output, pipe);
-        igt_plane_set_fb(igt_output_get_plane_type(output,
+	igt_create_image_fb(display->drm_fd, mode->hdisplay, 
+			mode->vdisplay, DRM_FORMAT_XRGB8888, 
+			DRM_FORMAT_MOD_LINEAR, FILENAME1, fb);
+	igt_output_set_pipe(output, pipe);
+	igt_plane_set_fb(igt_output_get_plane_type(output, 
 				DRM_PLANE_TYPE_PRIMARY), fb);
-        igt_display_commit2(display,
+	igt_display_commit2(display, 
 			display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
 }
 
@@ -72,6 +72,7 @@ static void cleanup_pipe(igt_display_t *display, enum pipe pipe,
 static void ghe_uevent(int timeout)
 {
 	struct udev_monitor *uevent_monitor;
+	
 	uevent_monitor = igt_watch_uevents();
 	igt_flush_uevents(uevent_monitor);
 	igt_assert(igt_ghe_histogram_event_detected(uevent_monitor, timeout));
@@ -84,6 +85,7 @@ static drmModePropertyBlobRes *get_ghe_blob(int fd, uint32_t type,
 	drmModePropertyBlobRes *blob = NULL;
 	uint64_t blob_id;
 	int ret;
+
 	ret = kmstest_get_property(fd,
 			id,
 			type,
@@ -107,10 +109,9 @@ static int set_pixel_factor(igt_pipe_t *pipe,
 
 	size = sizeof(DietFactor);
 
-	for(int i = 0; i<GlobalHist_IET_LUT_LENGTH; i++)
-	{
-		//convert this to igt_debug after validation
-		igt_info("Pixel Factor[%d] = %d\n",i,DietFactor[i]);
+	for (int i = 0; i < GlobalHist_IET_LUT_LENGTH; i++) {
+		/*Displaying IET LUT */
+		igt_info("Pixel Factor[%d] = %d\n", i, DietFactor[i]);
 	}
 	igt_pipe_obj_replace_prop_blob(pipe, IGT_CRTC_GHE_PIXEL_FACTOR,
 			DietFactor, size);
@@ -118,28 +119,29 @@ static int set_pixel_factor(igt_pipe_t *pipe,
 }
 
 static GlobalHist_ARGS *send_data_to_ghe_algorithm(igt_display_t *display,
-		enum pipe pipe,igt_output_t *output)
+		enum pipe pipe, igt_output_t *output)
 {
 	drmModePropertyBlobRes *ghe_blob;
 	GlobalHist_ARGS *argsPtr =
 		(GlobalHist_ARGS *)malloc(sizeof(GlobalHist_ARGS));
 	uint32_t Histogram[GlobalHist_BIN_COUNT], *Histogram_ptr;
 	drmModeModeInfo *mode;
-	mode = igt_output_get_mode(output);
 
+	mode = igt_output_get_mode(output);
 	igt_info("Waiting for GHE Uevent\n");
 	ghe_uevent(25);
-	sleep(2);//for Histogram collection
+	/*Delay For Histogram Collection*/
+	sleep(2);
 
 	ghe_blob = get_ghe_blob(display->drm_fd, DRM_MODE_OBJECT_CRTC,
 			display->pipes[pipe].crtc_id, "Global Histogram");
 
-	igt_assert_f(ghe_blob,"Failed to read GHE HIstogram Blob\n");
+	igt_assert_f(ghe_blob, "Failed to read GHE HIstogram Blob\n");
 
-	Histogram_ptr	= (uint32_t *) ghe_blob->data ;
-	for(int i =0; i<GlobalHist_BIN_COUNT ; i++){
-		Histogram[i]= *(Histogram_ptr + i);
-		igt_info("Historgram[%d] = %d \n", i, Histogram[i]);
+	Histogram_ptr	= (uint32_t *) ghe_blob->data;
+	for (int i = 0; i < GlobalHist_BIN_COUNT ; i++) {
+		Histogram[i] = *(Histogram_ptr + i);
+		igt_info("Historgram[%d] = %d\n", i, Histogram[i]);
 	}
 
 	memcpy(argsPtr->Histogram, Histogram, sizeof(Histogram));
@@ -162,18 +164,19 @@ static void enable_ghe_property(int fd, uint32_t type, uint32_t id)
 	int i, ret;
 	uint32_t ghe_id;
 	drmModeAtomicReqPtr req = NULL;
+	
 	igt_assert(props);
 	req = drmModeAtomicAlloc();
 	for (i = 0; i < props->count_props; i++) {
 		uint32_t prop_id = props->props[i];
 		uint64_t prop_value = props->prop_values[i];
 		drmModePropertyPtr prop = drmModeGetProperty(fd, prop_id);
+		
 		igt_assert(prop);
-
-		if(strcmp(prop->name,"GLOBAL_HIST_EN"))
+		if (strcmp(prop->name, "GLOBAL_HIST_EN"))
 			continue;
-		igt_debug("prop_id=%d ,property value=%ld,name =%s\n",
-				prop_id ,prop_value,prop->name);
+		igt_debug("prop_id=%d ,property value=%ld,name =%s\n", 
+				prop_id, prop_value, prop->name);
 		ghe_id = prop_id;
 		igt_info("Setting GHE ENUM Property to Enable\n");
 
@@ -195,11 +198,11 @@ static void enable_ghe_property(int fd, uint32_t type, uint32_t id)
 			drmModeGetProperty(fd, prop_id_2);
 
 		igt_assert(prop_ghe);
-		if(strcmp(prop_ghe->name,"GLOBAL_HIST_EN"))
+		if (strcmp(prop_ghe->name, "GLOBAL_HIST_EN"))
 			continue;
 		igt_debug("Values After Enabling GHE : "
 			       "prop_id=%d, property value=%ld, name =%s\n",
-				prop_id_2 ,prop_value_2,prop_ghe->name);
+				prop_id_2, prop_value_2, prop_ghe->name);
 
 		igt_assert_f(prop_value_2 == GHE_ENABLE,
 				"GHE ENABLE FAILED\n");
@@ -220,7 +223,7 @@ static void run_ghe_pipeline(igt_display_t *display,
 	GlobalHist_ARGS *args;
 
 	prepare_pipe(display, pipe, output, &fb);
-	igt_info("Enabling GHE on %s (output: %s) \n",
+	igt_info("Enabling GHE on %s (output: %s).\n",
 			kmstest_pipe_name(pipe), output->name);
 	enable_ghe_property(display->drm_fd,
 			DRM_MODE_OBJECT_CRTC, display->pipes[pipe].crtc_id);
@@ -229,7 +232,7 @@ static void run_ghe_pipeline(igt_display_t *display,
 	prepare_pipe(display, pipe, output, &fb);
 
 	igt_info("Reading the Histogram Blob on %s (output: %s) "
-			"and Passing it to the GHE Library \n",
+			"and Passing it to the GHE Library.\n",
 			kmstest_pipe_name(pipe), output->name);
 	args = send_data_to_ghe_algorithm(display, pipe, output);
 
@@ -245,7 +248,7 @@ static void
 run_tests_for_ghe(igt_display_t *display)
 {
 	bool found_any_valid_pipe = false;
-        enum pipe pipe;
+	enum pipe pipe;
 	drmModeConnectorPtr con;
 	igt_output_t *output;
 
@@ -265,10 +268,11 @@ run_tests_for_ghe(igt_display_t *display)
 igt_main
 {
 	igt_display_t display;
+	
 	igt_fixture {
 		display.drm_fd = drm_open_driver_master(DRIVER_ANY);
 		kmstest_set_vt_graphics_mode();
-		igt_display_require(&display,display.drm_fd);
+		igt_display_require(&display, display.drm_fd);
 	}
 	igt_describe("Verifyng GHE Enablement - Read Histogram "
 		     "Blob - Write Pixel factor blob");
