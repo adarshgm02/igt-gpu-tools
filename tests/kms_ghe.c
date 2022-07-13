@@ -1,3 +1,29 @@
+/*
+ * Copyright © 2022 Intel Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ * Author:
+ *  G M, Adarsh<adarsh.g.m@intel.com>
+ */
+
 #include "igt.h"
 #include "igt_vec.h"
 #include "DisplayPc.h"
@@ -26,8 +52,8 @@ static void prepare_pipe(igt_display_t *display, enum pipe pipe,
 			DRM_FORMAT_MOD_LINEAR,FILENAME1,fb);
         igt_output_set_pipe(output, pipe);
         igt_plane_set_fb(igt_output_get_plane_type(output,
-			       	DRM_PLANE_TYPE_PRIMARY), fb);
-        igt_display_commit2(display, 
+				DRM_PLANE_TYPE_PRIMARY), fb);
+        igt_display_commit2(display,
 			display->is_atomic ? COMMIT_ATOMIC : COMMIT_LEGACY);
 }
 
@@ -71,7 +97,7 @@ static drmModePropertyBlobRes *get_ghe_blob(int fd, uint32_t type,
 	return blob;
 }
 
-static int set_pixel_factor(igt_pipe_t *pipe, 
+static int set_pixel_factor(igt_pipe_t *pipe,
 		GlobalHist_ARGS *argsPtr)
 {
 	size_t size;
@@ -95,7 +121,8 @@ static GlobalHist_ARGS *send_data_to_ghe_algorithm(igt_display_t *display,
 		enum pipe pipe,igt_output_t *output)
 {
 	drmModePropertyBlobRes *ghe_blob;
-	GlobalHist_ARGS *argsPtr = (GlobalHist_ARGS *)malloc(sizeof(GlobalHist_ARGS));
+	GlobalHist_ARGS *argsPtr =
+		(GlobalHist_ARGS *)malloc(sizeof(GlobalHist_ARGS));
 	uint32_t Histogram[GlobalHist_BIN_COUNT], *Histogram_ptr;
 	drmModeModeInfo *mode;
 	mode = igt_output_get_mode(output);
@@ -122,7 +149,7 @@ static GlobalHist_ARGS *send_data_to_ghe_algorithm(igt_display_t *display,
 	igt_debug("Making the call to GHE Alogorithm Library");
 
 	SetHistogramDataBin(argsPtr);
-	
+
 	drmModeFreePropertyBlob(ghe_blob);
 
 	return argsPtr;
@@ -170,7 +197,8 @@ static void enable_ghe_property(int fd, uint32_t type, uint32_t id)
 		igt_assert(prop_ghe);
 		if(strcmp(prop_ghe->name,"GLOBAL_HIST_EN"))
 			continue;
-		igt_debug("Values After Enabling GHE : prop_id=%d, property value=%ld, name =%s\n",
+		igt_debug("Values After Enabling GHE : "
+			       "prop_id=%d, property value=%ld, name =%s\n",
 				prop_id_2 ,prop_value_2,prop_ghe->name);
 
 		igt_assert_f(prop_value_2 == GHE_ENABLE,
@@ -200,7 +228,8 @@ static void run_ghe_pipeline(igt_display_t *display,
 	cleanup_pipe(display, pipe, output, &fb);
 	prepare_pipe(display, pipe, output, &fb);
 
-	igt_info("Reading the Histogram Blob on %s (output: %s) and Passing it to the GHE Library \n",
+	igt_info("Reading the Histogram Blob on %s (output: %s) "
+			"and Passing it to the GHE Library \n",
 			kmstest_pipe_name(pipe), output->name);
 	args = send_data_to_ghe_algorithm(display, pipe, output);
 
@@ -241,7 +270,9 @@ igt_main
 		kmstest_set_vt_graphics_mode();
 		igt_display_require(&display,display.drm_fd);
 	}
-	igt_describe("Verifyng GHE Enablement - Read Histogram Blob - Write Pixel factor blob");
+	igt_describe("Verifyng GHE Enablement - Read Histogram "
+		     "Blob - Write Pixel factor blob");
+
 	igt_subtest("Enable-GHE")
 		run_tests_for_ghe(&display);
 
